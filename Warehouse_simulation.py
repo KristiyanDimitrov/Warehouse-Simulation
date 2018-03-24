@@ -38,6 +38,7 @@ class Driver:
         Driver.draw_actor(self)
 
     def draw_actor(self):
+        #print("UPDATE AX/AY:" + str(self.ax) + "/" + str(self.ay))
         screen.blit(self.actor_png, (self.ax, self.ay))
         pygame.display.flip()
 
@@ -47,6 +48,10 @@ class Driver:
 
     def get_position(self):
         return self.ax, self.ay
+
+
+
+
 
 def check_surroundings(ax, ay):  # function keeps driver on drivabl areas only ~~~~~~~~ no being called if not manual movement
     driver = (self.ax, self.ay)
@@ -101,16 +106,7 @@ def map_cord():
                 line.append(0)
         map.append(line)
         line = []
-    '''
-        import pickle
-    
-        with open('outfile', 'wb') as fp:
-            pickle.dump(map, fp)
-    
-        with open ('outfile', 'rb') as fp:
-            itemlist = pickle.load(fp)
-        print(itemlist)
-    '''
+
     return (map, static_obj, racks)
 
 def converter(type, location):
@@ -154,28 +150,16 @@ def generate_picks(racks, lock, batch_quantity, batch_volume):
         batches.append(batches_temp)
         batches_temp = []
     return batches
-"""
-a
-a
-a
-a
-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaW@@@@@@@@@@@@@@@@@@@@@@@@@@@@OOOOO
-a
-a
-a
-a
-a
-"""
+
 def worker(picks, worker_N):
 
     lock = threading.Lock()
     ax, ay = workers[worker_N].get_position()
     start = converter("pixel",(ax, ay))
 
-    #print("picks:")
-    #print("picks:"picks)
 
-    for task in picks:
+
+    for task in reversed(picks):
         
         print_lock = threading.Lock() # Locking the print function so that the threads can use it without mixing it up
         # Generate path for the goal
@@ -192,43 +176,41 @@ def worker(picks, worker_N):
                 ay = y[1]
        
                 lock.acquire()
-                warehouse(screen)       # Draw the warehouse
-                workers[worker_N].change_postion(ax, ay) # change position
-                workers[worker_N].draw_actor()  # Draw the driver
+                #
+                name =  threading.currentThread().name
+                workers[name].change_postion(ax, ay) # change position
+                #
                 lock.release()
                 with print_lock:
-                    print("Target:")
-                    print(task)
-                    print(str(ax) + "/" + str(ay))
+                    print("Target:" + str(task[0]) + "/" + str(task[1]))
+                    print("Position: " + name + " is " + str(ax) + "/" + str(ay))
+                    
                 time.sleep(1)
         except:
-            print("Failed to find a path for: " )
-            print("Start :")
-            print(start)
-            print("Goal")
+            with print_lock:
+                print("@@@@@@Failed to find a path for: " )
+                print("Start :" + str(start[0]) + "/" + str(start[1]))
+                print("Goal: " +  str(task[0]) + "/" + str(task[1]))
     
-    with print_lock:
-        print(threading.current_thread().name,'Task')
 
 def worker_thread():
     while True:
         job=q.get()
-        print(job)
+        print("GIVE WORK TO :" + name)
         worker(job, name)
         q.task_done() # Makes the thread available again, now that it has completed its job
 
 def job_alocation(order):
     
 
-    print(type(workers["worker0"]))
-    for nameWorker in workers_name:
-        print("Name: " + nameWorker)
-        print(type(nameWorker))
+    for nameWorker in workers_name:      
+        print("START THREAD FOR:" + nameWorker)
         t = threading.Thread(target = worker_thread, name= nameWorker) # Define the thread at asign it to go through 'wroker_thread" function when started
         t.daemon =True # Dies when the main thread dies
         t.start()
-    print(type(workers[nameWorker]))
-    
+        print("TEST")
+        #time.sleep(1)
+
     start=time.time() # start time for testing
     
     for job in order:
@@ -247,7 +229,23 @@ def job_alocation(order):
     ln(35) we wait for the queue to be empty"""
 
 
+def controller_thread():
+    c = threading.Thread(target = Draw_main, name= "Draw_thread")
+    c.daemon =True # Dies when the main thread dies
+    c.start()
 
+
+def Draw_main():
+
+    starttime=time.time()
+    while True:
+        warehouse(screen)       # Draw the warehouse
+        for worker in workers_name:
+            workers[worker].draw_actor()  # Draw the driver
+        time.sleep(1.0 - ((time.time() - starttime) % 1.0))
+        
+
+   
 
 
 if __name__ == "__main__":
@@ -264,10 +262,10 @@ if __name__ == "__main__":
 
     # Agent spawn position
 
-    warehouse(screen)       # Draw the warehouse
+    #
 
     # Create workers
-    number_of_workers = 2
+    number_of_workers = 6
     global workers, workers_name
     workers = {}
     workers_name = []
@@ -281,24 +279,32 @@ if __name__ == "__main__":
 
     # Generate map with new cordinates
     map =  numpy.array(map)
-    print(map.shape[1]) # shape1 = 37 ////shape0  = 140
+    #print(map.shape[1]) # shape1 = 37 ////shape0  = 140
 
     # Generate pick batches for a racks lock
     lock = 8
-    batch_quantity = 1
-    batch_volume = 1
+    batch_quantity = 4
+    batch_volume = 3
     batches = generate_picks(racks, lock, batch_quantity, batch_volume)
-    print("Number of sectors: " + str(len(batches)))
+    #print("Number of sectors: " + str(len(batches)))
     
+    # Controll thread
+    controller_thread()
+
     # Alocate work
     job_alocation(batches)
     
+
+
+
+    # RESOLVE BY MAKING ANOTHER THREAD THAT W8S FOR ALL THE OTHER THREADS TO SAY THEY ARE READY SO IT CAN DRAW THE MAP AND ALL OF THEM
+
     """
     ISSUES:
         1) when drawing 2 separate workers one over-draws the other
         2) when one task is finished by worker 1 it teleports to worker 2 and caries on from there to it next task
 
-
+    """
 
 
 """
@@ -337,3 +343,28 @@ if __name__ == "__main__":
 
 """
 
+'''
+    import pickle
+
+    with open('outfile', 'wb') as fp:
+        pickle.dump(map, fp)
+
+    with open ('outfile', 'rb') as fp:
+        itemlist = pickle.load(fp)
+    print(itemlist)
+'''
+
+'''class Draw:
+
+def __init_(self, names):
+    self.workers_position = {}
+    for name in names:
+        self.workers_position[name] = (0, 0)
+
+def set_worker_position(name, position):
+    slef.workers_position[name] = position
+
+
+def get_wrokers_position():
+    return self.workers_positio
+'''
