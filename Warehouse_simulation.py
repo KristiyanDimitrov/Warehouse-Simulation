@@ -35,7 +35,6 @@ class Driver:
         self.ay = 54
         self.actor_size = [9, 9]
         self.actor_png = pygame.image.load("driver image.png")
-        Driver.draw_actor(self)
 
     def draw_actor(self):
         #print("UPDATE AX/AY:" + str(self.ax) + "/" + str(self.ay))
@@ -43,21 +42,19 @@ class Driver:
         pygame.display.flip()
 
     def change_postion(self, ax, ay):
+        print("NEW POSITION: " + str(ax) + "/" + str(ay))
         self.ax = ax
         self.ay = ay
 
     def get_position(self):
-        return self.ax, self.ay
+        position = (self.ax, self.ay)
+        return position
 
 
 
 
 
-def check_surroundings(ax, ay):  # function keeps driver on drivabl areas only ~~~~~~~~ no being called if not manual movement
-    driver = (self.ax, self.ay)
-    for i in static_obj:
-        if driver == i:
-            return False
+
 
 def warehouse(screen):
     """
@@ -151,11 +148,12 @@ def generate_picks(racks, lock, batch_quantity, batch_volume):
         batches_temp = []
     return batches
 
-def worker(picks, worker_N):
+def worker(picks):
 
+    name =  threading.currentThread().name
     lock = threading.Lock()
-    ax, ay = workers[worker_N].get_position()
-    start = converter("pixel",(ax, ay))
+    start = workers[name].get_position()
+    start = converter("pixel", start)
 
 
 
@@ -164,6 +162,8 @@ def worker(picks, worker_N):
         print_lock = threading.Lock() # Locking the print function so that the threads can use it without mixing it up
         # Generate path for the goal
         lock.acquire()
+        start = workers[name].get_position()
+        start = converter("pixel", start)
         task = converter("pixel", task)
         path = astar(map, start, task)
         lock.release()
@@ -177,14 +177,12 @@ def worker(picks, worker_N):
        
                 lock.acquire()
                 #
-                name =  threading.currentThread().name
                 workers[name].change_postion(ax, ay) # change position
                 #
                 lock.release()
                 with print_lock:
                     print("Target:" + str(task[0]) + "/" + str(task[1]))
-                    print("Position: " + name + " is " + str(ax) + "/" + str(ay))
-                    
+                    print("Position: " + name + " is " + str(ax) + "/" + str(ay))   
                 time.sleep(1)
         except:
             with print_lock:
@@ -196,8 +194,8 @@ def worker(picks, worker_N):
 def worker_thread():
     while True:
         job=q.get()
-        print("GIVE WORK TO :" + name)
-        worker(job, name)
+       # print("GIVE WORK TO :" + name)
+        worker(job)
         q.task_done() # Makes the thread available again, now that it has completed its job
 
 def job_alocation(order):
@@ -208,8 +206,6 @@ def job_alocation(order):
         t = threading.Thread(target = worker_thread, name= nameWorker) # Define the thread at asign it to go through 'wroker_thread" function when started
         t.daemon =True # Dies when the main thread dies
         t.start()
-        print("TEST")
-        #time.sleep(1)
 
     start=time.time() # start time for testing
     
@@ -299,49 +295,6 @@ if __name__ == "__main__":
 
     # RESOLVE BY MAKING ANOTHER THREAD THAT W8S FOR ALL THE OTHER THREADS TO SAY THEY ARE READY SO IT CAN DRAW THE MAP AND ALL OF THEM
 
-    """
-    ISSUES:
-        1) when drawing 2 separate workers one over-draws the other
-        2) when one task is finished by worker 1 it teleports to worker 2 and caries on from there to it next task
-
-    """
-
-
-"""
-    Run = True
-    while Run:
-        for event in pygame.event.get():
-            # code keeps the window open untill user closes it
-            if event.type == pygame.QUIT:
-                pygame.quit()
-                Run = False
-
-            # code to get cursor position for testing purposes
-            elif event.type == pygame.MOUSEBUTTONDOWN:
-                mouse = pygame.mouse.get_pos()
-                print("Cursor position: ", mouse)
-
-            # code to move actor
-            elif event.type == pygame.KEYDOWN:
-                if event.key == K_UP:
-                    if check_surroundings(ax, (ay - 9)) != False:
-                        ay -= 9
-                if event.key == K_DOWN:
-                    if check_surroundings(ax, (ay + 9)) != False:
-                        ay += 9
-                if event.key == K_LEFT:
-                    if check_surroundings((ax - 9), ay) != False:
-                        ax -= 9
-                if event.key == K_RIGHT:
-                    if check_surroundings((ax + 9), ay) != False:
-                        ax += 9
-
-                # call room(screen) on every loop so that the display updates and the previous actor position is deleted
-                print("Location: " + str(ax) + " // " + str(ay))
-                warehouse(screen)
-                Driver(screen, ax, ay)
-
-"""
 
 '''
     import pickle
