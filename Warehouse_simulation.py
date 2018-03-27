@@ -141,9 +141,18 @@ def generate_picks(racks, lock, batch_quantity, batch_volume):
         
         for work in range(batch_quantity): # For number of requred batches
             for items in range(batch_volume): # For number of requred items per batch
-                x = randint(min_x, max_x) # Generate random order withing the sector
-                y = randint(min_y, max_y) 
-                batches_temp.append((x, y))
+                is_racking = True
+                while (is_racking == True): # Make sure it doesn't generare picks on the position of the racking
+                    x = randrange((min_x + 9), max_x, 9) # Generate random order withing the sector
+                    y = randrange(min_y, max_y, 9) 
+                    position = (x ,y)
+                    
+                    if position not in racks:
+                        batches_temp.append((x, y))
+                        is_racking = False
+                    else:
+                        pass
+
         batches.append(batches_temp)
         batches_temp = []
     return batches
@@ -256,9 +265,12 @@ if __name__ == "__main__":
     screen.fill((255, 255, 255))
     pygame.display.flip()
 
-    # Agent spawn position
-
-    #
+    # pygame support
+    pygame.mouse.set_visible(False)
+    pygame.event.set_blocked(pygame.MOUSEMOTION)
+    pygame.event.set_blocked(pygame.MOUSEBUTTONDOWN)
+    pygame.event.set_blocked(pygame.MOUSEBUTTONUP)
+    pygame.event.clear()
 
     # Create workers
     number_of_workers = 6
