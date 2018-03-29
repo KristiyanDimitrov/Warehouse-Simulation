@@ -6,6 +6,8 @@ import time
 import threading
 from queue import Queue
 from random import *
+import random
+import pickle
 
 q = Queue()
 
@@ -49,10 +51,6 @@ class Driver:
     def get_position(self):
         position = (self.ax, self.ay)
         return position
-
-
-
-
 
 
 
@@ -125,6 +123,10 @@ def generate_picks(racks, lock, batch_quantity, batch_volume):
     batches_temp = []
     batches = []
 
+    alphabet = []                # Generate the alphabet for vertical point
+    for letter in range(97,123):
+        alphabet.append(chr(letter))
+
     for current_rack in racks: # Splits the racking in lock sectors by deviding them into sublists
         if (current_rack[0] == (start_lock[0] + 18*lock)): 
             start_lock = current_rack
@@ -146,25 +148,38 @@ def generate_picks(racks, lock, batch_quantity, batch_volume):
                     x = randrange((min_x + 9), max_x, 9) # Generate random order withing the sector
                     y = randrange(min_y, max_y, 9) 
                     position = (x ,y)
-                    
+                    vertical_level = random.choice(alphabet) # Vertical level of pick
                     if position not in racks:
-                        batches_temp.append((x, y))
+                        batches_temp.append((x, y, vertical_level))
                         is_racking = False
                     else:
                         pass
 
         batches.append(batches_temp)
         batches_temp = []
+
+    with open('batches', 'wb') as fp:    # Dump the batches genrated last time
+        pickle.dump(batches, fp)
+
     return batches
 
 def worker(picks):
 
-    name =  threading.currentThread().name
+    name =  threading.currentThread().name 
     lock = threading.Lock()
     start = workers[name].get_position()
     start = converter("pixel", start)
 
-
+    condition = threading.Condition()             # Deploy workers one by one
+    condition.acquire()
+    if (start == converter("pixel", (1251, 54))):
+        while (workers_queue[0] != name):
+             time.sleep(3)
+        print("AAAAAAAAAAAAAAAA")
+        check = workers_queue.pop(0)
+        print("CHECK: " + check)
+        print(workers_queue)
+        condition.release()
 
     for task in reversed(picks):
         
@@ -273,13 +288,15 @@ if __name__ == "__main__":
     pygame.event.clear()
 
     # Create workers
-    number_of_workers = 6
-    global workers, workers_name
+    number_of_workers = 8
+    global workers, workers_name, workers_queue
     workers = {}
     workers_name = []
+    workers_queue = []
     for i in range(number_of_workers):
         name = "worker" + str(i)
         workers_name.append(name)
+        workers_queue.append(name)
         workers[name] =  Driver(screen)
 
     # map and its static objects in (0 and 1s)
