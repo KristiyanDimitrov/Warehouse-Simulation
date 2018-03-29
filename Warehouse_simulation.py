@@ -154,9 +154,10 @@ def generate_picks(racks, lock, batch_quantity, batch_volume):
                         is_racking = False
                     else:
                         pass
+                batches.append(batches_temp)
+                batches_temp = []
 
-        batches.append(batches_temp)
-        batches_temp = []
+        
 
     with open('batches', 'wb') as fp:    # Dump the batches genrated last time
         pickle.dump(batches, fp)
@@ -169,21 +170,23 @@ def worker(picks):
     lock = threading.Lock()
     start = workers[name].get_position()
     start = converter("pixel", start)
+    print_lock = threading.Lock() # Locking the print function so that the threads can use it without mixing it up
+
+    lock.acquire()
+    print("ACTIVE : " + name) # up to worker 7, no more for some reason
+    lock.release()
 
     condition = threading.Condition()             # Deploy workers one by one
     condition.acquire()
     if (start == converter("pixel", (1251, 54))):
         while (workers_queue[0] != name):
              time.sleep(3)
-        print("AAAAAAAAAAAAAAAA")
-        check = workers_queue.pop(0)
-        print("CHECK: " + check)
-        print(workers_queue)
+        workers_queue.pop(0)
         condition.release()
 
     for task in reversed(picks):
+       
         
-        print_lock = threading.Lock() # Locking the print function so that the threads can use it without mixing it up
         # Generate path for the goal
         lock.acquire()
         start = workers[name].get_position()
@@ -213,13 +216,17 @@ def worker(picks):
                 print("@@@@@@Failed to find a path for: " )
                 print("Start :" + str(start[0]) + "/" + str(start[1]))
                 print("Goal: " +  str(task[0]) + "/" + str(task[1]))
-    
+
+def test(name):
+    print("The thread " + name + "ENDED UP HERE FOR FUCKS SAKE WHYYYYYYYY" )
 
 def worker_thread():
     while True:
         job=q.get()
-       # print("GIVE WORK TO :" + name)
+        #print("GIVE WORK TO :" + name)
         worker(job)
+        test(threading.currentThread().name)
+        #print("GIVE WORK TO :" + name)
         q.task_done() # Makes the thread available again, now that it has completed its job
 
 def job_alocation(order):
@@ -288,7 +295,7 @@ if __name__ == "__main__":
     pygame.event.clear()
 
     # Create workers
-    number_of_workers = 8
+    number_of_workers = 15
     global workers, workers_name, workers_queue
     workers = {}
     workers_name = []
@@ -308,8 +315,8 @@ if __name__ == "__main__":
 
     # Generate pick batches for a racks lock
     lock = 8
-    batch_quantity = 4
-    batch_volume = 3
+    batch_quantity = 20
+    batch_volume = 10
     batches = generate_picks(racks, lock, batch_quantity, batch_volume)
     #print("Number of sectors: " + str(len(batches)))
     
