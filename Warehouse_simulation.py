@@ -185,7 +185,6 @@ def worker(picks):
     condition.acquire()
     
     if (start == converter("pixel", (1251, 54))):
-        print(name)
         #print("PRINT THIS : " + workers_queue[0] + " / " + name) this is printing for all workers
         while (workers_queue[0] != name):           
             time.sleep(3)
@@ -194,8 +193,6 @@ def worker(picks):
         time.sleep(1)
         print("Deploy " + workers_queue[0]) 
         workers_queue.pop(0)
-        print(workers_queue)
-        print(workers_queue[0] != name)
     condition.release()
 
     for task in reversed(picks):
@@ -272,12 +269,10 @@ def job_alocation(order):
     ln(32) we add all the jobs to get finished and on...
     ln(35) we wait for the queue to be empty"""
 
-
 def controller_thread():
     c = threading.Thread(target = Draw_main, name= "Draw_thread")
     c.daemon =True # Dies when the main thread dies
     c.start()
-
 
 def Draw_main():
 
@@ -288,9 +283,6 @@ def Draw_main():
             workers[worker].draw_actor()  # Draw the driver
         time.sleep(1.0 - ((time.time() - starttime) % 1.0))
         
-
-   
-
 
 if __name__ == "__main__":
 
@@ -340,7 +332,7 @@ if __name__ == "__main__":
     workers_name = [] # global for names
     workers_queue = [] # Queue for deployment
     #workers_lock = number_of_workers
-    for i in range(number_of_workers + 1):
+    for i in range(number_of_workers):
         name = "worker" + str(i)
         workers_name.append(name)
         workers_queue.append(name)
@@ -349,7 +341,7 @@ if __name__ == "__main__":
     # Alocate lock sector for each worker
     i = 0 # Number of sectors up to the specified in variable lock
     y = 0
-    while (number_of_workers != (i + y)):
+    while ((number_of_workers ) > (i + y)):
         if (i == lock):
             i = 0
             y += lock
@@ -358,6 +350,7 @@ if __name__ == "__main__":
         workers[name].eddit_lock(str(i))
         print(workers[name].get_lock())
         i += 1
+    print("EDDITED POSSITION FOR NUMBER OF WORKERS : " + str((i + y)))
 
 
     # Controll thread
