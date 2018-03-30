@@ -9,7 +9,6 @@ from random import *
 import random
 import pickle
 
-q = Queue()
 
 print("Starting the simulation!")
 pygame.init()
@@ -35,6 +34,7 @@ class Driver:
         self.screen = screen
         self.ax = 1251
         self.ay = 54
+        self.lock = None
         self.actor_size = [9, 9]
         self.actor_png = pygame.image.load("driver image.png")
 
@@ -44,7 +44,7 @@ class Driver:
         pygame.display.flip()
 
     def change_postion(self, ax, ay):
-        print("NEW POSITION: " + str(ax) + "/" + str(ay))
+        #print("NEW POSITION: " + str(ax) + "/" + str(ay))
         self.ax = ax
         self.ay = ay
 
@@ -52,7 +52,11 @@ class Driver:
         position = (self.ax, self.ay)
         return position
 
+    def eddit_lock(self, lock):
+        self.lock = lock
 
+    def get_lock(self):
+        return self.lock
 
 def warehouse(screen):
     """
@@ -136,10 +140,12 @@ def generate_picks(racks, lock, batch_quantity, batch_volume):
             lock_temp.append(current_rack)
 
     for sector in lock_list: # For secktor of 'lock' nuber of racks
+        print("nNUBER OF SECTORS ARE : " + str(len(lock_list)))
         min_x = sector[0][0] 
         max_x = sector[-1][0]
         min_y = sector[0][1]
         max_y = sector[-1][1]
+        number_sector = lock_list.index(sector)
         
         for work in range(batch_quantity): # For number of requred batches
             for items in range(batch_volume): # For number of requred items per batch
@@ -154,8 +160,11 @@ def generate_picks(racks, lock, batch_quantity, batch_volume):
                         is_racking = False
                     else:
                         pass
+                sector_queues[str(number_sector)].put(batches_temp) # Put the batch in a queue for the specific lock sector
                 batches.append(batches_temp)
                 batches_temp = []
+
+            
 
         
 
@@ -172,17 +181,22 @@ def worker(picks):
     start = converter("pixel", start)
     print_lock = threading.Lock() # Locking the print function so that the threads can use it without mixing it up
 
-    lock.acquire()
-    print("ACTIVE : " + name) # up to worker 7, no more for some reason
-    lock.release()
-
     condition = threading.Condition()             # Deploy workers one by one
     condition.acquire()
+    
     if (start == converter("pixel", (1251, 54))):
-        while (workers_queue[0] != name):
-             time.sleep(3)
+        print(name)
+        #print("PRINT THIS : " + workers_queue[0] + " / " + name) this is printing for all workers
+        while (workers_queue[0] != name):           
+            time.sleep(3)
+            #print(name + " ? " +  str(workers_queue[0])) #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ HERE THE PROBLEM CAN SPOTED
+
+        time.sleep(1)
+        print("Deploy " + workers_queue[0]) 
         workers_queue.pop(0)
-        condition.release()
+        print(workers_queue)
+        print(workers_queue[0] != name)
+    condition.release()
 
     for task in reversed(picks):
        
@@ -208,8 +222,9 @@ def worker(picks):
                 #
                 lock.release()
                 with print_lock:
-                    print("Target:" + str(task[0]) + "/" + str(task[1]))
-                    print("Position: " + name + " is " + str(ax) + "/" + str(ay))   
+                    #print("Target:" + str(task[0]) + "/" + str(task[1]))
+                    #print("Position: " + name + " is " + str(ax) + "/" + str(ay))
+                    pass   
                 time.sleep(1)
         except:
             with print_lock:
@@ -217,21 +232,25 @@ def worker(picks):
                 print("Start :" + str(start[0]) + "/" + str(start[1]))
                 print("Goal: " +  str(task[0]) + "/" + str(task[1]))
 
-def test(name):
-    print("The thread " + name + "ENDED UP HERE FOR FUCKS SAKE WHYYYYYYYY" )
 
 def worker_thread():
+    name =  threading.currentThread().name
+    lock = threading.Lock()
     while True:
-        job=q.get()
-        #print("GIVE WORK TO :" + name)
+
+        lock.acquire()
+        queue = workers[name].get_lock()
+        a = str(queue)
+        #print ("SEE IF THERE IS ANYTHIG WRONG HERE -----queue name: " + a)
+        job = sector_queues[a].get()
+        lock.release()
+
+        #print("GIVE WORK TO :" + name + " in sector --" + a )
         worker(job)
-        test(threading.currentThread().name)
-        #print("GIVE WORK TO :" + name)
-        q.task_done() # Makes the thread available again, now that it has completed its job
+        sector_queues[queue].task_done() # Makes the thread available again, now that it has completed its job
 
 def job_alocation(order):
     
-
     for nameWorker in workers_name:      
         print("START THREAD FOR:" + nameWorker)
         t = threading.Thread(target = worker_thread, name= nameWorker) # Define the thread at asign it to go through 'wroker_thread" function when started
@@ -240,10 +259,8 @@ def job_alocation(order):
 
     start=time.time() # start time for testing
     
-    for job in order:
-        q.put(job)
-    
-    q.join() # Blocks until all items in the queue have been gotten and processed.
+    queue = workers[name].get_lock()
+    sector_queues[queue].join() # Blocks until all items in the queue have been gotten and processed.
     
     print('Entire job took:', time.time()-start)
     
@@ -294,18 +311,6 @@ if __name__ == "__main__":
     pygame.event.set_blocked(pygame.MOUSEBUTTONUP)
     pygame.event.clear()
 
-    # Create workers
-    number_of_workers = 15
-    global workers, workers_name, workers_queue
-    workers = {}
-    workers_name = []
-    workers_queue = []
-    for i in range(number_of_workers):
-        name = "worker" + str(i)
-        workers_name.append(name)
-        workers_queue.append(name)
-        workers[name] =  Driver(screen)
-
     # map and its static objects in (0 and 1s)
     map, static_obj, racks = map_cord()
 
@@ -313,13 +318,48 @@ if __name__ == "__main__":
     map =  numpy.array(map)
     #print(map.shape[1]) # shape1 = 37 ////shape0  = 140
 
-    # Generate pick batches for a racks lock
+    # Setting up settings
+    global workers, workers_name, workers_queue, sector_queues
+    number_of_workers = 15
     lock = 8
     batch_quantity = 20
     batch_volume = 10
-    batches = generate_picks(racks, lock, batch_quantity, batch_volume)
-    #print("Number of sectors: " + str(len(batches)))
     
+
+    # Create sector job queues
+    sector_queues = {}
+    for i in range(lock):
+        #print("Making  queue with the name of " + str(i))
+        sector_queues[str(i)] = Queue()
+
+    # Generate pick batches for a racks lock
+    batches = generate_picks(racks, lock, batch_quantity, batch_volume) 
+
+    # Create workers
+    workers = {} # Contains workers as instances of class Driver
+    workers_name = [] # global for names
+    workers_queue = [] # Queue for deployment
+    #workers_lock = number_of_workers
+    for i in range(number_of_workers + 1):
+        name = "worker" + str(i)
+        workers_name.append(name)
+        workers_queue.append(name)
+        workers[name] =  Driver(screen)
+
+    # Alocate lock sector for each worker
+    i = 0 # Number of sectors up to the specified in variable lock
+    y = 0
+    while (number_of_workers != (i + y)):
+        if (i == lock):
+            i = 0
+            y += lock
+        name = "worker" + str(i + y)
+        print("Lock " + name + " for sector " + str(i))
+        workers[name].eddit_lock(str(i))
+        print(workers[name].get_lock())
+        i += 1
+
+
     # Controll thread
     controller_thread()
 
@@ -329,7 +369,6 @@ if __name__ == "__main__":
 
 
 
-    # RESOLVE BY MAKING ANOTHER THREAD THAT W8S FOR ALL THE OTHER THREADS TO SAY THEY ARE READY SO IT CAN DRAW THE MAP AND ALL OF THEM
 
 
 '''
