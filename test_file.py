@@ -1,3 +1,4 @@
+'''
 import pygame
 from pygame.locals import *
 from path_finding import astar
@@ -42,3 +43,9 @@ print("bbbbb")
 
                 import random
 import pickle
+'''
+
+x = 0
+for i in range(8):
+    x += 1
+    print(x)
