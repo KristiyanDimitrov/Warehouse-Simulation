@@ -161,7 +161,7 @@ def generate_picks(racks, lock, batch_quantity, batch_volume):
                     else:
                         pass
                 sector_queues[str(number_sector)].put(batches_temp) # Put the batch in a queue for the specific lock sector
-                batches.append(batches_temp)
+                batches.append([batches_temp, str(number_sector)])
                 batches_temp = []
 
             
@@ -311,11 +311,12 @@ if __name__ == "__main__":
     #print(map.shape[1]) # shape1 = 37 ////shape0  = 140
 
     # Setting up settings
-    global workers, workers_name, workers_queue, sector_queues
+    global workers, workers_name, workers_queue, sector_queues, old_batch
     number_of_workers = 15
     lock = 8
     batch_quantity = 20
     batch_volume = 10
+    old_batch = True  # Using old batch is when this variable is 'True'
     
 
     # Create sector job queues
@@ -324,8 +325,15 @@ if __name__ == "__main__":
         #print("Making  queue with the name of " + str(i))
         sector_queues[str(i)] = Queue()
 
-    # Generate pick batches for a racks lock
-    batches = generate_picks(racks, lock, batch_quantity, batch_volume) 
+    # Generate pick batches for a racks lock or uses old load
+    if (old_batch == False):
+        batches = generate_picks(racks, lock, batch_quantity, batch_volume)
+    else:
+        with open('batches', 'rb') as fp:
+            batches = pickle.load(fp)
+        for order in batches:
+            sector_queues[order[1]].put(order[0]) # Feeding work from previously generated batch
+
 
     # Create workers
     workers = {} # Contains workers as instances of class Driver
