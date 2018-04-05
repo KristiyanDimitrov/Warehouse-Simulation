@@ -54,6 +54,7 @@ def astar(array, start, goal): # array == map // start, goal == typle
     #print("FINISH")           
     return False
 '''
+#for testing purposes
 nmap1 = numpy.array([
     [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
     [1,0,1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1],

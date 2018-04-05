@@ -160,13 +160,10 @@ def generate_picks(racks, lock, batch_quantity, batch_volume):
                         is_racking = False
                     else:
                         pass
-                sector_queues[str(number_sector)].put(batches_temp) # Put the batch in a queue for the specific lock sector
+                sector_queues[str(number_sector)].put(batches_temp) # Put the batch in a queue for the specific lock sector 
                 batches.append([batches_temp, str(number_sector)])
                 batches_temp = []
-
-            
-
-        
+  
 
     with open('batches', 'wb') as fp:    # Dump the batches genrated last time
         pickle.dump(batches, fp)
@@ -175,6 +172,7 @@ def generate_picks(racks, lock, batch_quantity, batch_volume):
 
 def worker(picks):
 
+    global all_deployed
     name =  threading.currentThread().name 
     lock = threading.Lock()
     start = workers[name].get_position()
@@ -194,6 +192,9 @@ def worker(picks):
         print("Deploy " + workers_queue[0]) 
         workers_queue.pop(0)
     condition.release()
+    if (name[6:] == str(number_of_workers - 1)):
+        print("All workers deployed!")
+        all_deployed = True
 
     for task in reversed(picks):
        
@@ -215,19 +216,57 @@ def worker(picks):
        
                 lock.acquire()
                 #
+                global positions_taken
+
+                #a = converter('bin' ,path[path.index(i) - 1])
+                #print("TESTTTTTT++++++++++++++++==")
+                #print(a)
+                #print(positions_taken)
+                jam_time = 0 # How much time to wait before trying an alternative path
+                while (all_deployed == True): # If two workers are facing eachother, one moves aside to et the other one go
+                    if (jam_time == 2):
+                        jam_time = 0
+                        global static_obj
+                        if  ((ax, ay + 9) not in static_obj):
+                            #print (str((ax, ay + 9)) + " NOT IN ~@~@~@~@~@~@~@" + str(static_obj))
+                            workers[name].change_postion(ax, ay + 9)
+                            time.sleep(random.randint(0, 2))
+                        elif  ((ax, ay - 9) not in static_obj):
+                            workers[name].change_postion(ax, ay - 9)
+                            time.sleep(random.randint(0, 2))
+                        else:
+                            print(name + " can't move due to being enclosed in shevs!")
+
+                    wait = True
+                    for position in positions_taken:
+                        if position == (ax, ay) or position ==  converter('bin' ,path[path.index(i) - 1]) :
+                            wait = False
+                            test = workers[name].get_position()
+                            print("CAN'T MOVE FROM " + str(test) + " TO : " + str((ax, ay)))
+                    if (wait == True):
+                        break
+                    else:
+                        print(name + " can't move due to other worker infront!")
+                        print("Next Possition: " + str(ax) + "/" + str(ay))
+                        print(positions_taken)
+                        jam_time += 1
+                        time.sleep(1)
+
                 workers[name].change_postion(ax, ay) # change position
                 #
                 lock.release()
                 with print_lock:
                     #print("Target:" + str(task[0]) + "/" + str(task[1]))
-                    #print("Position: " + name + " is " + str(ax) + "/" + str(ay))
+                    print("Position: " + name + " is " + str(ax) + "/" + str(ay))
                     pass   
                 time.sleep(1)
-        except:
+        except Exception as err:
             with print_lock:
-                print("@@@@@@Failed to find a path for: " )
+                #print(path)
+                print("@@@@@@Failed to find a path for: ")
                 print("Start :" + str(start[0]) + "/" + str(start[1]))
                 print("Goal: " +  str(task[0]) + "/" + str(task[1]))
+                print(err)
 
 
 def worker_thread():
@@ -238,7 +277,6 @@ def worker_thread():
         lock.acquire()
         queue = workers[name].get_lock()
         a = str(queue)
-        #print ("SEE IF THERE IS ANYTHIG WRONG HERE -----queue name: " + a)
         job = sector_queues[a].get()
         lock.release()
 
@@ -275,11 +313,14 @@ def controller_thread():
     c.start()
 
 def Draw_main():
-
+    global positions_taken
+    
     starttime=time.time()
     while True:
         warehouse(screen)       # Draw the warehouse
+        positions_taken = []
         for worker in workers_name:
+            positions_taken.append(workers[worker].get_position())
             workers[worker].draw_actor()  # Draw the driver
         time.sleep(1.0 - ((time.time() - starttime) % 1.0))
         
@@ -296,13 +337,6 @@ if __name__ == "__main__":
     screen.fill((255, 255, 255))
     pygame.display.flip()
 
-    # pygame support
-    pygame.mouse.set_visible(False)
-    pygame.event.set_blocked(pygame.MOUSEMOTION)
-    pygame.event.set_blocked(pygame.MOUSEBUTTONDOWN)
-    pygame.event.set_blocked(pygame.MOUSEBUTTONUP)
-    pygame.event.clear()
-
     # map and its static objects in (0 and 1s)
     map, static_obj, racks = map_cord()
 
@@ -311,13 +345,13 @@ if __name__ == "__main__":
     #print(map.shape[1]) # shape1 = 37 ////shape0  = 140
 
     # Setting up settings
-    global workers, workers_name, workers_queue, sector_queues, old_batch
-    number_of_workers = 15
+    global workers, workers_name, workers_queue, sector_queues, old_batch, all_deployed, static_obj
+    number_of_workers = 6
     lock = 8
-    batch_quantity = 20
-    batch_volume = 10
+    batch_quantity = 10
+    batch_volume = 5
     old_batch = True  # Using old batch is when this variable is 'True'
-    
+    all_deployed = False
 
     # Create sector job queues
     sector_queues = {}
@@ -331,6 +365,9 @@ if __name__ == "__main__":
     else:
         with open('batches', 'rb') as fp:
             batches = pickle.load(fp)
+            #batches = []
+            #for i in range(10):
+              #  batches.append([[(135, 207, 'g')], '0'])
         for order in batches:
             sector_queues[order[1]].put(order[0]) # Feeding work from previously generated batch
 
@@ -355,10 +392,10 @@ if __name__ == "__main__":
             y += lock
         name = "worker" + str(i + y)
         print("Lock " + name + " for sector " + str(i))
-        workers[name].eddit_lock(str(i))
+        workers[name].eddit_lock('7') #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~@@@@@@@@@@@@@@@ str(i)
         print(workers[name].get_lock())
         i += 1
-    print("EDDITED POSSITION FOR NUMBER OF WORKERS : " + str((i + y)))
+    print("EDDITED POSITION FOR NUMBER OF WORKERS : " + str((i + y)))
 
 
     # Controll thread
@@ -366,34 +403,4 @@ if __name__ == "__main__":
 
     # Alocate work
     job_alocation(batches)
-    
-
-
-
-
-
-'''
-    import pickle
-
-    with open('outfile', 'wb') as fp:
-        pickle.dump(map, fp)
-
-    with open ('outfile', 'rb') as fp:
-        itemlist = pickle.load(fp)
-    print(itemlist)
-'''
-
-'''class Draw:
-
-def __init_(self, names):
-    self.workers_position = {}
-    for name in names:
-        self.workers_position[name] = (0, 0)
-
-def set_worker_position(name, position):
-    slef.workers_position[name] = position
-
-
-def get_wrokers_position():
-    return self.workers_positio
-'''
+   

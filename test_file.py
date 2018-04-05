@@ -1,4 +1,4 @@
-'''
+
 import pygame
 from pygame.locals import *
 from path_finding import astar
@@ -7,12 +7,11 @@ import time
 import threading
 from queue import Queue
 from random import *
-
+'''
 nameWorker = "worker5"
 print ("aaaaa")
 clock.tick(int(nameWorker[6:]))
 print("bbbbb")
-
 
     event = threading.Event()
     lock.acquire()
@@ -45,7 +44,13 @@ print("bbbbb")
 import pickle
 '''
 
-x = 0
-for i in range(8):
-    x += 1
-    print(x)
+
+
+
+a = [1,2,3,4,5,6,7,8,9]
+
+for number in a:
+    if number == 5:
+        a =[1,2,3,4,5,8,9]
+    print(number)
+                            
