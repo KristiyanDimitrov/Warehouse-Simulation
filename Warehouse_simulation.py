@@ -35,6 +35,7 @@ class Driver:
         self.ax = 1251
         self.ay = 54
         self.lock = None
+        self.previous = None
         self.actor_size = [9, 9]
         self.in_racking = ((self.ax, self.ay),False)
         self.actor_png = pygame.image.load("driver image.png")
@@ -59,11 +60,12 @@ class Driver:
     def get_lock(self):
         return self.lock
 
-    def set_in_racking(self, in_racking):
+    def set_in_racking(self, in_racking, previous):
         self.in_racking = in_racking
+        self.previous = previous
 
     def get_in_racking(self):
-        return self.in_racking
+        return self.in_racking, self.previous
 
 def warehouse(screen):
     """
@@ -224,15 +226,15 @@ def worker(picks):
         start = workers[name].get_position()
         start = converter("pixel", start)
         task = converter("pixel", task)
-        in_racking =  workers[name].get_in_racking()
+        in_racking, previous =  workers[name].get_in_racking()
         in_racking = (converter('pixel', in_racking[0]), in_racking[1])
-        print("Giving last position " + str(in_racking))
-        path, in_racking = astar(map, start, task, red, green, in_racking)
-        print("Storing last position " + str(in_racking))
+        #print("Giving last position " + str(in_racking))
+        path, in_racking, previous = astar(map, start, task, red, green, in_racking, previous)
+        #print("Storing last position " + str(in_racking))
         in_racking = (converter('bin', in_racking[0]), in_racking[1])
-        workers[name].set_in_racking(in_racking)
+        workers[name].set_in_racking(in_racking, previous)
         
-        print(path)
+       # print(path)
         lock.release()
         
         # reach the goal
@@ -246,31 +248,39 @@ def worker(picks):
                 #
                 global positions_taken
 
-                #a = converter('bin' ,path[path.index(i) - 1])
-                #print("TESTTTTTT++++++++++++++++==")
-                #print(a)
-                #print(positions_taken)
+
                 jam_time = 0 # How much time to wait before trying an alternative path
-                while (all_deployed == True): # If two workers are facing eachother, one moves aside to et the other one go
+                while (all_deployed == True): # If two workers are facing eachother, one moves aside to et the other one go ( all deployes instead of True because is should work before all are deployed)
                     if (jam_time == 2):
                         jam_time = 0
+
                         global static_obj
                         if  ((ax, ay + 9) not in static_obj):
                             #print (str((ax, ay + 9)) + " NOT IN ~@~@~@~@~@~@~@" + str(static_obj))
                             workers[name].change_postion(ax, ay + 9)
-                            time.sleep(random.randint(0, 2))
-                        elif  ((ax, ay - 9) not in static_obj):
+                            #print(name + "Try move to : " + str((ax, ay + 9)))
+                            ay += 9
+                            time.sleep(random.randint(0, 3))
+                        elif  ((ax, ay - 9) not in static_obj):                           
+                            workers[name].change_postion(ax - 9, ay)
+                            #print( name +" Try move to : " + str((ax -9, ay)))
+                            ax -= 9
+                            time.sleep(random.randint(0, 3))
+                        elif  ((ax, ay - 9) not in static_obj):                           
                             workers[name].change_postion(ax, ay - 9)
-                            time.sleep(random.randint(0, 2))
+                            #print( name +" Try move to : " + str((ax, ay - 9)))
+                            ay -= 9
+                            time.sleep(random.randint(0, 3))
                         else:
-                            print(name + " can't move due to being enclosed in shevs!")
+                           # print(name + " can't move due to being enclosed in shevs!")
+                           pass
 
                     wait = True
                     for position in positions_taken:
                         if position == (ax, ay) or position ==  converter('bin' ,path[path.index(i) - 1]) :
                             wait = False
                             test = workers[name].get_position()
-                            print("CAN'T MOVE FROM " + str(test) + " TO : " + str((ax, ay)))
+                            print( name +" CAN'T MOVE FROM " + str(test) + " TO : " + str((ax, ay)))
                     if (wait == True):
                         break
                     else:
@@ -285,7 +295,7 @@ def worker(picks):
                 lock.release()
                 with print_lock:
                     #print("Target:" + str(task[0]) + "/" + str(task[1]))
-                    print("Position: " + name + " is " + str(converter("pixel", (ax, ay))))
+                    #print("Position: " + name + " is " + str(converter("pixel", (ax, ay))))
                     pass   
                 time.sleep(1)
         except Exception as err:
@@ -383,7 +393,7 @@ if __name__ == "__main__":
 
     # Setting up settings
     
-    number_of_workers = 1
+    number_of_workers = 20
     lock = 8
     batch_quantity = 10
     batch_volume = 5
@@ -429,7 +439,7 @@ if __name__ == "__main__":
             y += lock
         name = "worker" + str(i + y)
         print("Lock " + name + " for sector " + str(i))
-        workers[name].eddit_lock('7') #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~@@@@@@@@@@@@@@@ str(i)
+        workers[name].eddit_lock(str(i)) #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~@@@@@@@@@@@@@@@ str(i)
         print(workers[name].get_lock())
         i += 1
     print("EDDITED POSITION FOR NUMBER OF WORKERS : " + str((i + y)))
