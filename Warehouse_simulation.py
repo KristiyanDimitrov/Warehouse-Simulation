@@ -79,10 +79,14 @@ def map_cord():
      # map
     map = []
     racks = []
+    # Entrance // Exit
     red = []
     green = []
-   
-
+    '''
+    # Roads for going left and right
+    left_way = []
+    right_way = []
+    '''
     # Static objects not drivable on ( must be typels )
     static_obj = []
     
@@ -104,7 +108,7 @@ def map_cord():
         for y in range (63, 288, 9):
             static_obj.append((i, y)) # all the racks
             racks.append((i, y))
-    
+    # Exit // Entry
     for i in range (9, 1215, 36): # All the red exits
         red.append((i, 63))
     for i in range (27, 1215, 36): # All the red exits
@@ -114,7 +118,12 @@ def map_cord():
         green.append((i, 63))
     for i in range (9, 1215, 36): # All the green
         green.append((i, 288))
-
+    '''
+    # Roads for going left and right
+    for i in range (9, 324, 9):
+        right_way.append(i, 9)
+        right_way.append(i, 18)
+'''
 
     line = []
     incr = 0
@@ -217,10 +226,12 @@ def worker(picks):
     if (name[6:] == str(number_of_workers - 1)):
         print("All workers deployed!")
         all_deployed = True
-
+    test = converter('pixel', picks[-1])
+    print("LOCATION GOING: " + str(test) )
     for task in reversed(picks):
        
         
+
         # Generate path for the goal
         lock.acquire()
         start = workers[name].get_position()
@@ -251,36 +262,13 @@ def worker(picks):
 
                 jam_time = 0 # How much time to wait before trying an alternative path
                 while (all_deployed == True): # If two workers are facing eachother, one moves aside to et the other one go ( all deployes instead of True because is should work before all are deployed)
-                    if (jam_time == 2):
-                        jam_time = 0
-
-                        global static_obj
-                        if  ((ax, ay + 9) not in static_obj):
-                            #print (str((ax, ay + 9)) + " NOT IN ~@~@~@~@~@~@~@" + str(static_obj))
-                            workers[name].change_postion(ax, ay + 9)
-                            #print(name + "Try move to : " + str((ax, ay + 9)))
-                            ay += 9
-                            time.sleep(random.randint(0, 3))
-                        elif  ((ax, ay - 9) not in static_obj):                           
-                            workers[name].change_postion(ax - 9, ay)
-                            #print( name +" Try move to : " + str((ax -9, ay)))
-                            ax -= 9
-                            time.sleep(random.randint(0, 3))
-                        elif  ((ax, ay - 9) not in static_obj):                           
-                            workers[name].change_postion(ax, ay - 9)
-                            #print( name +" Try move to : " + str((ax, ay - 9)))
-                            ay -= 9
-                            time.sleep(random.randint(0, 3))
-                        else:
-                           # print(name + " can't move due to being enclosed in shevs!")
-                           pass
-
+                    
+                    current_state = workers[name].get_position()
                     wait = True
                     for position in positions_taken:
-                        if position == (ax, ay) or position ==  converter('bin' ,path[path.index(i) - 1]) :
+                        if current_state != position and position == (ax, ay) or position == converter('bin' ,path[path.index(i) - 1]) or position == converter('bin' ,path[path.index(i) - 2]) :
                             wait = False
-                            test = workers[name].get_position()
-                            print( name +" CAN'T MOVE FROM " + str(test) + " TO : " + str((ax, ay)))
+                            #print( name +" CAN'T MOVE FROM " + str(current_state) + " TO : " + str((ax, ay)))
                     if (wait == True):
                         break
                     else:
@@ -289,6 +277,42 @@ def worker(picks):
                         #print(positions_taken)
                         jam_time += 1
                         time.sleep(1)
+                    
+                    if (jam_time == 3):
+                        jam_time = 0
+
+                        global static_obj
+                        try_side = randint(0,1)
+                        #print((1161, 297) in static_obj)
+                        if  (((ax, ay + 9) not in static_obj) and try_side == 0):
+                            #print (str((ax, ay + 9)) + " NOT IN ~@~@~@~@~@~@~@" + str(static_obj))
+                            workers[name].change_postion(ax, ay + 9)
+                            #print(name + "Try move to : " + str((ax, ay + 9)))
+                            ay += 9
+                            time.sleep(random.randint(0, 3))
+                        elif  (((ax, ay - 9) not in static_obj) and try_side == 1):                           
+                            workers[name].change_postion(ax - 9, ay)
+                            #print( name +" Try move to : " + str((ax -9, ay)))
+                            ax -= 9
+                            time.sleep(random.randint(0, 3))
+                        elif  (((ax, ay + 9) not in static_obj) and try_side == 0):                           
+                            workers[name].change_postion(ax + 9, ay)
+                            #print( name +" Try move to : " + str((ax -9, ay)))
+                            ax += 9
+                            time.sleep(random.randint(0, 3))
+                        elif  (((ax, ay - 9) not in static_obj) and try_side == 1):                           
+                            workers[name].change_postion(ax, ay - 9)
+                            #print( name +" Try move to : " + str((ax, ay - 9)))
+                            ay -= 9
+                            time.sleep(random.randint(0, 3))
+                        else:
+                           # print(name + " can't move due to being enclosed in shevs!")
+                           pass
+
+                    
+                            
+                   
+                    
 
                 workers[name].change_postion(ax, ay) # change position
                 #
@@ -386,17 +410,17 @@ if __name__ == "__main__":
         green[green.index(feld)] = converter('pixel', feld)
     for feld in red:
         red[red.index(feld)] = converter('pixel', feld)
-    print(green)
+    #print(green)
     # Generate map with new cordinates
     map =  numpy.array(map)
     #print(map.shape[1]) # shape1 = 37 ////shape0  = 140
 
     # Setting up settings
     
-    number_of_workers = 20
+    number_of_workers = 1
     lock = 8
-    batch_quantity = 10
-    batch_volume = 5
+    batch_quantity = 200
+    batch_volume = 40
     old_batch = True  # Using old batch is when this variable is 'True'
     all_deployed = False
 
@@ -412,9 +436,12 @@ if __name__ == "__main__":
     else:
         with open('batches', 'rb') as fp:
             batches = pickle.load(fp)
-            #batches = []
-            #for i in range(10):
-              #  batches.append([[(135, 207, 'g')], '0'])
+
+            # FOR TESTING PURPOSES!!!!!!!!!!!!!!!~~~~~~~~~~~~~~~~~~~~~~
+            batches[1] = [[(1143, 180 , 't')], '7']
+            batches[3] = [[(1143, 153 , 't')], '7']
+            batches[6] = [[(1143, 96  , 't')], '7']
+
         for order in batches:
             sector_queues[order[1]].put(order[0]) # Feeding work from previously generated batch
 
@@ -439,7 +466,7 @@ if __name__ == "__main__":
             y += lock
         name = "worker" + str(i + y)
         print("Lock " + name + " for sector " + str(i))
-        workers[name].eddit_lock(str(i)) #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~@@@@@@@@@@@@@@@ str(i)
+        workers[name].eddit_lock('7') #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~@@@@@@@@@@@@@@@ str(i)
         print(workers[name].get_lock())
         i += 1
     print("EDDITED POSITION FOR NUMBER OF WORKERS : " + str((i + y)))
