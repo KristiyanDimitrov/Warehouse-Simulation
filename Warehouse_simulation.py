@@ -39,6 +39,8 @@ class Driver:
         self.actor_size = [9, 9]
         self.in_racking = ((self.ax, self.ay),False)
         self.actor_png = pygame.image.load("driver image.png")
+        self.tote_number = 11
+        self.tote_inventory = 0
 
     def draw_actor(self):
         #print("UPDATE AX/AY:" + str(self.ax) + "/" + str(self.ay))
@@ -66,6 +68,13 @@ class Driver:
 
     def get_in_racking(self):
         return self.in_racking, self.previous
+
+    def update_tote(self,tote_number, tote_inventory):
+        self.tote_number = tote_number
+        self.tote_inventory = tote_inventory
+
+    def info_tote(self):
+        return self.tote_number, self.tote_inventory
 
 def warehouse(screen):
     """
@@ -118,12 +127,7 @@ def map_cord():
         green.append((i, 63))
     for i in range (9, 1215, 36): # All the green
         green.append((i, 288))
-    '''
-    # Roads for going left and right
-    for i in range (9, 324, 9):
-        right_way.append(i, 9)
-        right_way.append(i, 18)
-'''
+
 
     line = []
     incr = 0
@@ -150,7 +154,7 @@ def converter(type, location):
     new = (new_type[0],new_type[1])
     return new
 
-def generate_picks(racks, lock, batch_quantity, batch_volume):
+def generate_picks(alphabet,racks, lock, batch_quantity, batch_volume):
     count_racks = 0
     lock_list = []
     lock_temp = []
@@ -158,9 +162,7 @@ def generate_picks(racks, lock, batch_quantity, batch_volume):
     batches_temp = []
     batches = []
 
-    alphabet = []                # Generate the alphabet for vertical point
-    for letter in range(97,123):
-        alphabet.append(chr(letter))
+    
 
     for current_rack in racks: # Splits the racking in lock sectors by deviding them into sublists
         if (current_rack[0] == (start_lock[0] + 18*lock)): 
@@ -181,7 +183,7 @@ def generate_picks(racks, lock, batch_quantity, batch_volume):
         for work in range(batch_quantity): # For number of requred batches
             for items in range(batch_volume): # For number of requred items per batch
                 is_racking = True
-                while (is_racking == True): # Make sure it doesn't generare picks on the position of the racking
+                while (is_racking == True): # Make sure it doesn't generare pick on the position of the racking
                     x = randrange((min_x + 9), max_x, 9) # Generate random order withing the sector
                     y = randrange(min_y, max_y, 9) 
                     position = (x ,y)
@@ -201,12 +203,14 @@ def generate_picks(racks, lock, batch_quantity, batch_volume):
 
     return batches
 
-def worker(picks):
-
+def worker(pick):
+    print("PICS IS :___________________________")
+    print(pick)
     global all_deployed
     name =  threading.currentThread().name 
     lock = threading.Lock()
     start = workers[name].get_position()
+    tote_number, tote_inventory = workers[name].info_tote()
     start = converter("pixel", start)
     print_lock = threading.Lock() # Locking the print function so that the threads can use it without mixing it up
 
@@ -226,110 +230,143 @@ def worker(picks):
     if (name[6:] == str(number_of_workers - 1)):
         print("All workers deployed!")
         all_deployed = True
-    test = converter('pixel', picks[-1])
-    print("LOCATION GOING: " + str(test) )
-    for task in reversed(picks):
-       
+  
+    print("LOCATION GOING: " + str(pick) )
+
         
 
-        # Generate path for the goal
-        lock.acquire()
-        start = workers[name].get_position()
-        start = converter("pixel", start)
-        task = converter("pixel", task)
-        in_racking, previous =  workers[name].get_in_racking()
-        in_racking = (converter('pixel', in_racking[0]), in_racking[1])
-        #print("Giving last position " + str(in_racking))
-        path, in_racking, previous = astar(map, start, task, red, green, in_racking, previous)
-        #print("Storing last position " + str(in_racking))
-        in_racking = (converter('bin', in_racking[0]), in_racking[1])
-        workers[name].set_in_racking(in_racking, previous)
-        
-       # print(path)
-        lock.release()
-        
-        # reach the goal
-        try:
-            for i in reversed(path):
-                y = converter('bin', i)
-                ax = y[0]
-                ay = y[1]
-       
-                lock.acquire()
-                #
-                global positions_taken
+    # Generate path for the goal
+    lock.acquire()
+    start = workers[name].get_position()
+    start = converter("pixel", start)
+    pick = (converter("pixel", (pick[0][0], pick[0][1])), pick[0][2])
+    in_racking, previous =  workers[name].get_in_racking()
+    in_racking = (converter('pixel', in_racking[0]), in_racking[1])
+    #print("Giving last position " + str(in_racking))
+    path, in_racking, previous = astar(map, start, pick[0], red, green, in_racking, previous)
+    #print("Storing last position " + str(in_racking))
+    workers[name].set_in_racking((converter('bin', in_racking[0]), in_racking[1]), previous)
+    
+    # print(path)
+    lock.release()
+     
+    # keeping track of in/out of racking for being able to move vertically
+    in_racking = False
+    time_in_racking = 0
 
 
-                jam_time = 0 # How much time to wait before trying an alternative path
-                while (all_deployed == True): # If two workers are facing eachother, one moves aside to et the other one go ( all deployes instead of True because is should work before all are deployed)
-                    
-                    current_state = workers[name].get_position()
-                    wait = True
-                    for position in positions_taken:
-                        if current_state != position and position == (ax, ay) or position == converter('bin' ,path[path.index(i) - 1]) or position == converter('bin' ,path[path.index(i) - 2]) :
-                            wait = False
-                            #print( name +" CAN'T MOVE FROM " + str(current_state) + " TO : " + str((ax, ay)))
-                    if (wait == True):
-                        break
+    # reach the goal
+    try:
+        for i in reversed(path):
+            y = converter('bin', i)
+            ax = y[0]
+            ay = y[1]
+   
+            lock.acquire()
+            #
+            global positions_taken
+
+
+            jam_time = 0 # How much time to wait before trying an alternative path
+            while (all_deployed == True): # If two workers are facing eachother, one moves aside to et the other one go ( all deployes instead of True because is should work before all are deployed)
+                
+                current_state = workers[name].get_position()
+                wait = True
+                for position in positions_taken:
+                    if current_state != position and position == (ax, ay) or position == converter('bin' ,path[path.index(i) - 1]) or position == converter('bin' ,path[path.index(i) - 2]) :
+                        wait = False
+                        #print( name +" CAN'T MOVE FROM " + str(current_state) + " TO : " + str((ax, ay)))
+                if (wait == True):
+                    break
+                else:
+                    #print(name + " can't move due to other worker infront!")
+                    #print("Next Possition: " + str(ax) + "/" + str(ay))
+                    #print(positions_taken)
+                    jam_time += 1
+                    time.sleep(1)
+                
+                if (jam_time == 3):
+                    jam_time = 0
+
+                    global static_obj
+                    try_side = randint(0,1)
+                    #print((1161, 297) in static_obj)
+                    if  (((ax, ay + 9) not in static_obj) and try_side == 0):
+                        #print (str((ax, ay + 9)) + " NOT IN ~@~@~@~@~@~@~@" + str(static_obj))
+                        workers[name].change_postion(ax, ay + 9)
+                        #print(name + "Try move to : " + str((ax, ay + 9)))
+                        ay += 9
+                        time.sleep(random.randint(0, 3))
+                    elif  (((ax, ay - 9) not in static_obj) and try_side == 1):                           
+                        workers[name].change_postion(ax - 9, ay)
+                        #print( name +" Try move to : " + str((ax -9, ay)))
+                        ax -= 9
+                        time.sleep(random.randint(0, 3))
+                    elif  (((ax, ay + 9) not in static_obj) and try_side == 0):                           
+                        workers[name].change_postion(ax + 9, ay)
+                        #print( name +" Try move to : " + str((ax -9, ay)))
+                        ax += 9
+                        time.sleep(random.randint(0, 3))
+                    elif  (((ax, ay - 9) not in static_obj) and try_side == 1):                           
+                        workers[name].change_postion(ax, ay - 9)
+                        #print( name +" Try move to : " + str((ax, ay - 9)))
+                        ay -= 9
+                        time.sleep(random.randint(0, 3))
                     else:
-                        #print(name + " can't move due to other worker infront!")
-                        #print("Next Possition: " + str(ax) + "/" + str(ay))
-                        #print(positions_taken)
-                        jam_time += 1
-                        time.sleep(1)
-                    
-                    if (jam_time == 3):
-                        jam_time = 0
+                       # print(name + " can't move due to being enclosed in shevs!")
+                       pass
+            
+            if (  converter("pixel",(ax, ay)) in green):
+                in_racking = True
+                if time_in_racking < alphabet.index(vertical_level_rule):
+                    time_in_racking += 1   
+                    print("Increas time in rakicing: " + str(time_in_racking) )
+            elif ( converter("pixel",(ax, ay)) in red):
+                in_racking = False
+                sleep_time = alphabet.index(pick[0][2]) - time_in_racking
+                time_in_racking = 0
+                print("Sleep in the end of racking")
+                #time.sleep(sleep_time)
+            elif (in_racking == True):
+                if time_in_racking < alphabet.index(vertical_level_rule):
+                    time_in_racking += 1
+                print("Increas time in rakicing: " + str(time_in_racking) )
+            else:
+                print(time_in_racking)
+                print("Going out, no work here")
+            
+            # EXAMPLE FORMAT:   [(1143, 180, 't')]        
+            #print ((pick[0][0], pick[0][1]))
+           
+            if  ( converter("pixel", (ax, ay)) == (pick[0][0], pick[0][1]) ):
+                sleep_time = (alphabet.index(pick[1]) - time_in_racking) + (alphabet.index(pick[1]) - alphabet.index(vertical_level_rule))
+                sleep_time = (sleep_time * 0.5) + 5 + randint(0,5)   # each vertical movement take (0.5) + pick time (5 sec) + human factor(0-5 sec)
+                time_in_racking = 0
+                print("SLEEEP WHEN ON PICK FOR: " + str(sleep_time))
 
-                        global static_obj
-                        try_side = randint(0,1)
-                        #print((1161, 297) in static_obj)
-                        if  (((ax, ay + 9) not in static_obj) and try_side == 0):
-                            #print (str((ax, ay + 9)) + " NOT IN ~@~@~@~@~@~@~@" + str(static_obj))
-                            workers[name].change_postion(ax, ay + 9)
-                            #print(name + "Try move to : " + str((ax, ay + 9)))
-                            ay += 9
-                            time.sleep(random.randint(0, 3))
-                        elif  (((ax, ay - 9) not in static_obj) and try_side == 1):                           
-                            workers[name].change_postion(ax - 9, ay)
-                            #print( name +" Try move to : " + str((ax -9, ay)))
-                            ax -= 9
-                            time.sleep(random.randint(0, 3))
-                        elif  (((ax, ay + 9) not in static_obj) and try_side == 0):                           
-                            workers[name].change_postion(ax + 9, ay)
-                            #print( name +" Try move to : " + str((ax -9, ay)))
-                            ax += 9
-                            time.sleep(random.randint(0, 3))
-                        elif  (((ax, ay - 9) not in static_obj) and try_side == 1):                           
-                            workers[name].change_postion(ax, ay - 9)
-                            #print( name +" Try move to : " + str((ax, ay - 9)))
-                            ay -= 9
-                            time.sleep(random.randint(0, 3))
-                        else:
-                           # print(name + " can't move due to being enclosed in shevs!")
-                           pass
+                tote_inventory += 1
+                if tote_inventory > 15:
+                    tote_inventory = 0
+                    tote_number -= 1
+                workers[name].update_tote(tote_number, tote_inventory)
+                print("Worker has " + str(tote_number) + "totes and one in use with " + str(tote_inventory) + "Items inside!")
+                time.sleep(sleep_time)
+            
 
-                    
-                            
-                   
-                    
-
-                workers[name].change_postion(ax, ay) # change position
-                #
-                lock.release()
-                with print_lock:
-                    #print("Target:" + str(task[0]) + "/" + str(task[1]))
-                    #print("Position: " + name + " is " + str(converter("pixel", (ax, ay))))
-                    pass   
-                time.sleep(1)
-        except Exception as err:
+            workers[name].change_postion(ax, ay) # change position
+            #
+            lock.release()
             with print_lock:
-                #print(path)
-                print("@@@@@@Failed to find a path for: ")
-                print("Start :" + str(start[0]) + "/" + str(start[1]))
-                print("Goal: " +  str(task[0]) + "/" + str(task[1]))
-                print(err)
-
+                #print("Target:" + str(pick[0][0]) + "/" + str(pick[0][1]))
+                #print("Position: " + name + " is " + str(converter("pixel", (ax, ay))))
+                pass   
+            time.sleep(1)
+    except Exception as err:
+        with print_lock:
+            print("@@@@@@Failed to find a path for: ")
+            print("Start :" + str(start[0]) + "/" + str(start[1]))
+            print("Goal: " +  str(pick[0][0]) + "/" + str(pick[0][1]))
+            print(err)
 
 def worker_thread():
     name =  threading.currentThread().name
@@ -337,12 +374,11 @@ def worker_thread():
     while True:
 
         lock.acquire()
-        queue = workers[name].get_lock()
-        a = str(queue)
-        job = sector_queues[a].get()
+        queue = str(workers[name].get_lock())
+        job = sector_queues[queue].get()
         lock.release()
 
-        #print("GIVE WORK TO :" + name + " in sector --" + a )
+        #print("GIVE WORK (" + str(job) + ") TO :" + name + " in sector --" )
         worker(job)
         sector_queues[queue].task_done() # Makes the thread available again, now that it has completed its job
 
@@ -390,7 +426,7 @@ def Draw_main():
 if __name__ == "__main__":
 
     # set up global vars
-    global workers, workers_name, workers_queue, sector_queues, old_batch, all_deployed, static_obj, red, green
+    global workers, workers_name, workers_queue, sector_queues, old_batch, all_deployed, static_obj, red, green, vertical_level_rule
 
     # screen size
     screen = pygame.display.set_mode((1260, 333))
@@ -419,6 +455,7 @@ if __name__ == "__main__":
     
     number_of_workers = 1
     lock = 8
+    vertical_level_rule = "k"
     batch_quantity = 200
     batch_volume = 40
     old_batch = True  # Using old batch is when this variable is 'True'
@@ -430,9 +467,15 @@ if __name__ == "__main__":
         #print("Making  queue with the name of " + str(i))
         sector_queues[str(i)] = Queue()
 
+    
+    # Generate the alphabet for vertical point
+    alphabet = []                
+    for letter in range(97,123):
+        alphabet.append(chr(letter))
+
     # Generate pick batches for a racks lock or uses old load
     if (old_batch == False):
-        batches = generate_picks(racks, lock, batch_quantity, batch_volume)
+        batches = generate_picks(alphabet, racks, lock, batch_quantity, batch_volume)
     else:
         with open('batches', 'rb') as fp:
             batches = pickle.load(fp)
@@ -444,7 +487,6 @@ if __name__ == "__main__":
 
         for order in batches:
             sector_queues[order[1]].put(order[0]) # Feeding work from previously generated batch
-
 
     # Create workers
     workers = {} # Contains workers as instances of class Driver

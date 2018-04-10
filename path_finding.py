@@ -42,7 +42,6 @@ def astar(array, start, goal, red, green, in_rackings, previous): # array == map
                 data.append(current)
                 current = came_from[current][0]
                 in_rackings = (in_rackings[0], True) 
-            #print(fscore)
             return data, in_rackings, previous
 
         close_set.add(current) # add to visited
@@ -70,6 +69,7 @@ def astar(array, start, goal, red, green, in_rackings, previous): # array == map
             if neighbor in close_set and tentative_g_score >= gscore.get(neighbor, 0): # if the location has been explored and if the current tota cost is bigger, skip the update
                 continue
 
+            # ~~~~~~~~~~~~~~~~~~~~~~ KEEP IF NEEDED TO BACK TO THIS SOLUTION ~~~~~~~~~~~~~~~~~~~~
             """
             if ((in_rackings[1] == True) and (neighbor not in close_set)): # If a new reakicng entry gets checked out and then passed, change in_racking to False
                 print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!________________________!!!!!!!!!!!!!!!!!!!!!!!!!!")
@@ -82,16 +82,7 @@ def astar(array, start, goal, red, green, in_rackings, previous): # array == map
 """
 
             if neighbor in red and in_rackings[1] == False: # If outside the racking, can't enter through the red
-                print("Can't enter red at: " + str(neighbor))
-                print(in_rackings)
-                print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!________________________!!!!!!!!!!!!!!!!!!!!!!!!!!")
-                print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!________________________!!!!!!!!!!!!!!!!!!!!!!!!!!")
-                print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!________________________!!!!!!!!!!!!!!!!!!!!!!!!!!")
-                print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!________________________!!!!!!!!!!!!!!!!!!!!!!!!!!")
-                print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!________________________!!!!!!!!!!!!!!!!!!!!!!!!!!")
-                print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!________________________!!!!!!!!!!!!!!!!!!!!!!!!!!")
-                print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!________________________!!!!!!!!!!!!!!!!!!!!!!!!!!")
-                print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!________________________!!!!!!!!!!!!!!!!!!!!!!!!!!")
+                print("Can't enter red at: " + str(neighbor)) 
                 continue
             elif (neighbor in red) and (in_rackings[1] == True) and (neighbor[0] == in_rackings[0][0]): # Exit the racking
                 print("Exiting red at: " + str(neighbor))
@@ -111,17 +102,13 @@ def astar(array, start, goal, red, green, in_rackings, previous): # array == map
             if  tentative_g_score < gscore.get(neighbor, 0) or neighbor not in [i[1]for i in oheap]: # Log the neighbor
                 came_from[neighbor] = (current, in_rackings[1])
                 gscore[neighbor] = tentative_g_score
-                print("neighbor:" + str(neighbor))
-                print(str(tentative_g_score) +"//" + str(hscore(neighbor, goal)))
+                #print("neighbor:" + str(neighbor))
+                #print(str(tentative_g_score) +"//" + str(hscore(neighbor, goal)))
                 #time.sleep(3)
                 fscore[neighbor] = tentative_g_score + hscore(neighbor, goal)
                 #print((fscore[neighbor], neighbor))
                 adjacent.append((fscore[neighbor], neighbor))
 
-                if len(close_set) < 10:
-                   print("Current is: " + str(current))
-                   print("From neighbor(" + str(neighbor) + ")  to : " + str(goal))
-                   print(previous)
             try:
                 temp = (adjacent[0][0], adjacent[0][1])
             except:
