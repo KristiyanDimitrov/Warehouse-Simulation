@@ -17,10 +17,6 @@ def astar(array, start, goal, red, green, in_rackings, previous): # array == map
     oheap = []
     heappush(oheap, (fscore[start], start)) # heappush is an ND function 
     
-    for i in range(30):
-        print("D")
-    
-
     
 
     while oheap:
@@ -82,20 +78,21 @@ def astar(array, start, goal, red, green, in_rackings, previous): # array == map
 """
 
             if neighbor in red and in_rackings[1] == False: # If outside the racking, can't enter through the red
-                print("Can't enter red at: " + str(neighbor)) 
+                #print("Can't enter red at: " + str(neighbor)) 
                 continue
             elif (neighbor in red) and (in_rackings[1] == True) and (neighbor[0] == in_rackings[0][0]): # Exit the racking
-                print("Exiting red at: " + str(neighbor))
-                print(in_rackings)
+                #print("Exiting red at: " + str(neighbor))
+                #print(in_rackings)
                 in_rackings = (neighbor, False)
             elif (neighbor in green) and (in_rackings[1] == True) and (in_rackings[0] == neighbor): # If inside the rakcing, can't exit through green
-                print("Can't exit green at: " + str(neighbor))
+                #print("Can't exit green at: " + str(neighbor))
                 continue
             elif (neighbor in green and neighbor != in_rackings[0]): # Enter the racking
-                print("Enter green at: " + str(neighbor))
+                #print("Enter green at: " + str(neighbor))
                 in_rackings = (neighbor, True)
             elif (neighbor in red):
-                 print("Can't enter red at: " + str(neighbor))
+                 #print("Can't enter red at: " + str(neighbor))
+                 pass
                  continue
 
             
