@@ -210,9 +210,28 @@ def generate_picks(alphabet,racks, lock, batch_quantity, batch_volume):
 
     return batches
 
+def drop_totes(name, start, cond):
+
+    zone_1 = hscore(start, drop_zone_1[0])
+    zone_2 = hscore(start, drop_zone_2[0])
+    zone_3 = hscore(start, drop_zone_3[0])
+    closest_zone = min(z for z in (zone_1,zone_3)) # + zone_2
+    if (closest_zone == zone_1):
+        closest_zone = drop_zone_1[0]
+    elif (closest_zone == zone_3):
+        closest_zone = drop_zone_3[0]
+    #else:
+        #closest_zone = drop_zone_2[0]
+    closest_zone = converter("bin", closest_zone)
+    closest_zone = (closest_zone[0], closest_zone[1], "a") # passig the drop zone in the format of a pick so no ajustments need to be made in order to handle it
+    workers[name].update_tote(max_tote_number, 0, 0) # reseting worker as he is dropping everythig off #drop totes
+    print("Drop off totes by " + name)
+    worker([closest_zone], True, cond) 
+    time.sleep(time_for_droping)
+
 def worker(pick, drop, cond):
 
-    global all_deployed, static_obj, items_picket, positions_taken, interaction_count, interaction_bypass
+    global all_deployed, static_obj, items_picket, positions_taken, interaction_count, interaction_bypass, time_for_droping
     name =  threading.currentThread().name 
     lock = threading.Lock()
     start = workers[name].get_position()
@@ -220,24 +239,9 @@ def worker(pick, drop, cond):
     start = converter("pixel", start)
     print_lock = threading.Lock() # Locking the print function so that the threads can use it without mixing it up
 
-    if (full_totes > max_full_tote or tote_number == 0):   # If the worker needs to drop --- Find the closest drop zone and go drop
-        zone_1 = hscore(start, drop_zone_1[0])
-        zone_2 = hscore(start, drop_zone_2[0])
-        zone_3 = hscore(start, drop_zone_3[0])
-        closest_zone = min(z for z in (zone_1,zone_3)) # + zone_2
-        if (closest_zone == zone_1):
-            closest_zone = drop_zone_1[0]
-        elif (closest_zone == zone_3):
-            closest_zone = drop_zone_3[0]
-        else:
-            print("NO DROP ZONE IS CLOSE!?!?!?!?!?!?")
-            time.sleep(999999)
-            #closest_zone = drop_zone_2[0]
-        closest_zone = converter("bin", closest_zone)
-        closest_zone = (closest_zone[0], closest_zone[1], "a") # passig the drop zone in the format of a pick so no ajustments need to be made in order to handle it
-        workers[name].update_tote(max_tote_number, 0, 0) # reseting worker as he is dropping everythig off #drop totes
-        worker([closest_zone], True) 
-        time.sleep(10)
+    # Drop totes
+    if (full_totes == max_full_tote or tote_number == 0):   # If the worker needs to drop --- Find the closest drop zone and go drop
+        drop_totes(name, start, cond)
     
     # Deploy workers one by one and set up some base variables    
     if (len(workers_queue) != 0 and tote_inventory == 0):  # Ensure it is not ran again before all are deployed! Potential error when item picked before all deployed!
@@ -373,7 +377,8 @@ def worker(pick, drop, cond):
             time.sleep(sleep_time) 
 
         # If worker enteres the drop zone, perform the drop and refill totes and break the loop
-        if ( ( drop == True) and (converter("pixel", (ax, ay)) in drop_zones ) ): 
+        if ( ( drop == True) and (converter("pixel", (ax, ay)) in drop_zones ) ):
+            drop_totes(name, start, cond)
             workers[name].change_postion(ax, ay) # change position
             time.sleep(5)
             break
@@ -399,7 +404,7 @@ def worker_thread(condition):
 
         if (sector_queues[queue].qsize() == 0): # If there is't any more work in the sector, got back to spawn possition
             print("SEND " + name + " BACK TO SPAWN POINT, NO WORK LEFT!")
-            worker([(1242, 54, "a")], True)
+            worker([(1242, 54, "a")], True, condition)
             workers[name].change_postion(0,0)
             while items_picket != 1000:
                 time.sleep(2)
@@ -476,7 +481,7 @@ if __name__ == "__main__":
 
     # set up global vars
     global workers, workers_name, workers_queue, sector_queues, old_batch, all_deployed, static_obj, items_picket, inreraction_count, interaction_bypass
-    global red, green, vertical_level_rule, drop_zone_1, drop_zone_2, drop_zone_3, max_tote_number, max_tote_inventory, max_full_tote, drop_zones
+    global red, green, vertical_level_rule, drop_zone_1, drop_zone_2, drop_zone_3, max_tote_number, max_tote_inventory, max_full_tote, drop_zones, time_for_droping
 
     #Variables describing the agents interaction resolution
     interaction_count = 0
@@ -516,6 +521,7 @@ if __name__ == "__main__":
     max_tote_number = 12
     max_tote_inventory = 5
     max_full_tote = 5
+    time_for_droping = 10
     batch_quantity = 25 # 25
     batch_volume = 5 # 5
     old_batch = True  # Using old batch is when this variable is 'True'
@@ -542,7 +548,7 @@ if __name__ == "__main__":
         test = 0
         for order in batches:
             sector_queues[order[1]].put(order[0]) # Feeding work from previously generated batch
-
+    print("Items to be picked: " + str(len(batches)))
     # Create workers
     workers = {} # Contains workers as instances of class Driver
     workers_name = [] # global for names
