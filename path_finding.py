@@ -71,7 +71,7 @@ def astar(array, start, goal, red, green, in_rackings, previous): # array == map
                 in_rackings = (neighbor, True)
             elif (neighbor in red):
                  pass
-                 continue
+                 #continue
 
             
             if  tentative_g_score < gscore.get(neighbor, 0) or neighbor not in [i[1]for i in oheap]: # Log the neighbor
@@ -94,6 +94,6 @@ def astar(array, start, goal, red, green, in_rackings, previous): # array == map
         
 
 
-    print("COUDN'T FIND PATH!")
+    print("Could not find a path!")
     return False
 
