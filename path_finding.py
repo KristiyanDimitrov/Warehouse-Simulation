@@ -62,16 +62,21 @@ def astar(array, start, goal, red, green, in_rackings, previous): # array == map
 
 
             if neighbor in red and in_rackings[1] == False: # If outside the racking, can't enter through the red
+                #print("Can't enter in red! Location: " + str(neighbor))
                 continue
             elif (neighbor in red) and (in_rackings[1] == True) and (neighbor[0] == in_rackings[0][0]): # Exit the racking
+                #print("Exit red! Location: " + str(neighbor))
                 in_rackings = (neighbor, False)
             elif (neighbor in green) and (in_rackings[1] == True) and (in_rackings[0] == neighbor): # If inside the rakcing, can't exit through green
+                #print("Can't exit through that green! Location: " + str(neighbor))
                 continue
             elif (neighbor in green and neighbor != in_rackings[0]): # Enter the racking
+                #print("Enter the racking at green! Location: " + str(neighbor))
                 in_rackings = (neighbor, True)
             elif (neighbor in red):
+                 #print("Can go!" + str(neighbor))
                  pass
-                 #continue
+                 continue
 
             
             if  tentative_g_score < gscore.get(neighbor, 0) or neighbor not in [i[1]for i in oheap]: # Log the neighbor

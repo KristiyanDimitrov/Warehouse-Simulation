@@ -224,7 +224,7 @@ def worker(pick, drop, cond):
         zone_1 = hscore(start, drop_zone_1[0])
         zone_2 = hscore(start, drop_zone_2[0])
         zone_3 = hscore(start, drop_zone_3[0])
-        closest_zone = min(z for z in (zone_1, zone_3)) # + zone_2
+        closest_zone = min(z for z in (zone_1,zone_3)) # + zone_2
         if (closest_zone == zone_1):
             closest_zone = drop_zone_1[0]
         elif (closest_zone == zone_3):
@@ -239,22 +239,23 @@ def worker(pick, drop, cond):
         worker([closest_zone], True) 
         time.sleep(10)
     
-    # Deploy workers one by one and set up some base variables           
-    if (start == converter("pixel", (1251, 54))):   
-        cond.acquire()
-        while (workers_queue[0] != name):
-            with cond:
-                cond.wait()
+    # Deploy workers one by one and set up some base variables    
+    if (len(workers_queue) != 0 and tote_inventory == 0):  # Ensure it is not ran again before all are deployed! Potential error when item picked before all deployed!
+        if (start == converter("pixel", (1251, 54))):   
+            cond.acquire()
+            while (workers_queue[0] != name):
+                with cond:
+                    cond.wait()
 
-        print("Deploy " + workers_queue[0]) 
-        workers_queue.pop(0)
+            print("Deploy " + workers_queue[0]) 
+            workers_queue.pop(0)
 
-    time.sleep(3)
-    cond.notifyAll()
-    cond.release()
-    if (name[6:] == str(number_of_workers - 1)):
-        print("All workers deployed!")
-        all_deployed = True
+        time.sleep(3)
+        cond.notifyAll()
+        cond.release()
+        if (name[6:] == str(number_of_workers - 1)):
+            print("All workers deployed!")
+            all_deployed = True
 
 
     # Generate path for the goal
@@ -369,20 +370,21 @@ def worker(pick, drop, cond):
                 tote_number -= 1
                 full_totes += 1
             workers[name].update_tote(tote_number, tote_inventory, full_totes)
-            time.sleep(sleep_time)
+            time.sleep(sleep_time) 
 
         # If worker enteres the drop zone, perform the drop and refill totes and break the loop
         if ( ( drop == True) and (converter("pixel", (ax, ay)) in drop_zones ) ): 
             workers[name].change_postion(ax, ay) # change position
             time.sleep(5)
             break
-
-        workers[name].change_postion(ax, ay) # change position
+       
+        workers[name].change_postion(ax, ay) # Change position!
         lock.release()
 
         with print_lock:
             #print("Target:" + str(pick[0][0]) + "/" + str(pick[0][1]))
             #print("Position: " + name + " is " + str(converter("pixel", (ax, ay))))
+            #print(" In racking: " + str(in_racking))
             pass   
         time.sleep(1)
 
@@ -399,14 +401,12 @@ def worker_thread(condition):
             print("SEND " + name + " BACK TO SPAWN POINT, NO WORK LEFT!")
             worker([(1242, 54, "a")], True)
             workers[name].change_postion(0,0)
-            #workers[name].shutdown_flag.set()
-            #workers[name].join()
             while items_picket != 1000:
                 time.sleep(2)
             t.stop()
             break
 
-
+        time.sleep(1)
         job = sector_queues[queue].get()
         lock.release()
         
@@ -563,7 +563,7 @@ if __name__ == "__main__":
             y += lock
         name = "worker" + str(i + y)
         print("Lock " + name + " for sector " + str(i))
-        workers[name].eddit_lock(str(i)) 
+        workers[name].eddit_lock(str(i))   
         print(workers[name].get_lock())
         i += 1
     print("EDDITED POSITION FOR NUMBER OF WORKERS : " + str((i + y)))
