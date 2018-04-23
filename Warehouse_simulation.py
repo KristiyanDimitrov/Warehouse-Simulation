@@ -198,7 +198,7 @@ def generate_picks(alphabet,racks, lock, batch_quantity, batch_volume):
                         batches_temp.append((x, y, vertical_level))
                         is_racking = False
                     else:
-                        print("Pick not in shelves")
+                        #print("Pick not in shelves")
                         pass
                 sector_queues[str(number_sector)].put(batches_temp) # Put the batch in a queue for the specific lock sector 
                 batches.append([batches_temp, str(number_sector)])
@@ -210,24 +210,30 @@ def generate_picks(alphabet,racks, lock, batch_quantity, batch_volume):
 
     return batches
 
-def drop_totes(name, start, cond):
-
-    zone_1 = hscore(start, drop_zone_1[0])
-    zone_2 = hscore(start, drop_zone_2[0])
-    zone_3 = hscore(start, drop_zone_3[0])
-    closest_zone = min(z for z in (zone_1,zone_3)) # + zone_2
-    if (closest_zone == zone_1):
-        closest_zone = drop_zone_1[0]
-    elif (closest_zone == zone_3):
-        closest_zone = drop_zone_3[0]
-    #else:
-        #closest_zone = drop_zone_2[0]
-    closest_zone = converter("bin", closest_zone)
-    closest_zone = (closest_zone[0], closest_zone[1], "a") # passig the drop zone in the format of a pick so no ajustments need to be made in order to handle it
-    workers[name].update_tote(max_tote_number, 0, 0) # reseting worker as he is dropping everythig off #drop totes
-    print("Drop off totes by " + name)
-    worker([closest_zone], True, cond) 
-    time.sleep(time_for_droping)
+def drop_totes(name, start, cond, drop_only = False):
+    if drop_only == False:
+        zone_1 = hscore(start, drop_zone_1[0])
+        zone_2 = hscore(start, drop_zone_2[0])
+        zone_3 = hscore(start, drop_zone_3[0])
+        closest_zone = min(z for z in (zone_1, zone_2, zone_3)) # + zone_2
+        if (closest_zone == zone_1):
+            closest_zone = drop_zone_1[0]
+        elif (closest_zone == zone_3):
+            closest_zone = drop_zone_3[0]
+        else:
+            closest_zone = drop_zone_2[0]
+        closest_zone = converter("bin", closest_zone)
+        closest_zone = (closest_zone[0], closest_zone[1], "a") # passig the drop zone in the format of a pick so no ajustments need to be made in order to handle it
+        workers[name].update_tote(max_tote_number, 0, 0) # reseting worker as he is dropping everythig off #drop totes
+        time.sleep(1)
+        print("Drop off totes by " + name)
+        worker([closest_zone], True, cond) 
+        time.sleep(time_for_droping)
+    else:
+        workers[name].update_tote(max_tote_number, 0, 0) # reseting worker as he is dropping everythig off #drop totes
+        time.sleep(1)
+        print("Drop off totes by " + name)
+        time.sleep(time_for_droping)
 
 def worker(pick, drop, cond):
 
@@ -242,6 +248,9 @@ def worker(pick, drop, cond):
     # Drop totes
     if (full_totes == max_full_tote or tote_number == 0):   # If the worker needs to drop --- Find the closest drop zone and go drop
         drop_totes(name, start, cond)
+        start = workers[name].get_position()
+        tote_number, tote_inventory, full_totes = workers[name].info_tote()
+        start = converter("pixel", start)
     
     # Deploy workers one by one and set up some base variables    
     if (len(workers_queue) != 0 and tote_inventory == 0):  # Ensure it is not ran again before all are deployed! Potential error when item picked before all deployed!
@@ -360,25 +369,27 @@ def worker(pick, drop, cond):
 
         
         # Vertical movement and picking process
-        if  ( converter("pixel", (ax, ay)) == (pick[0][0], pick[0][1]) ): 
+        if  (converter("pixel", (ax, ay)) == (pick[0][0], pick[0][1])) and (drop == False) and (converter("pixel", (ax, ay)) != (1242, 54)): 
             # Generate how much time to spend in the location based on how many more moves have to be performed vertically and the picking factor
             sleep_time = max ((alphabet.index(pick[1]) - time_in_racking) + (alphabet.index(pick[1]) - alphabet.index(vertical_level_rule)), 0) 
             sleep_time = (sleep_time * 0.5) + 5 + randint(0,5)   # each vertical movement take (0.5) + pick time (5 sec) + human factor(0-5 sec)
             time_in_racking = 0
-            if (ax,ay) != (1242, 54):
+            if (ax,ay) == (1242, 54): # If the location is not the spawn point
+                pass
+            else:
                 items_picket += 1
-            print("Total items picked so far : " + str(items_picket))
-            tote_inventory += 1
-            if tote_inventory == max_tote_inventory:
-                tote_inventory = 0
-                tote_number -= 1
-                full_totes += 1
-            workers[name].update_tote(tote_number, tote_inventory, full_totes)
-            time.sleep(sleep_time) 
+                print("Total items picked so far : " + str(items_picket))
+                tote_inventory += 1
+                if tote_inventory == max_tote_inventory:
+                    tote_inventory = 0
+                    tote_number -= 1
+                    full_totes += 1
+                workers[name].update_tote(tote_number, tote_inventory, full_totes)
+                time.sleep(sleep_time) 
 
         # If worker enteres the drop zone, perform the drop and refill totes and break the loop
         if ( ( drop == True) and (converter("pixel", (ax, ay)) in drop_zones ) ):
-            drop_totes(name, start, cond)
+            drop_totes(name, start, cond, True)
             workers[name].change_postion(ax, ay) # change position
             time.sleep(5)
             break
@@ -394,6 +405,7 @@ def worker(pick, drop, cond):
         time.sleep(1)
 
 def worker_thread(condition):
+    global batches, c
     name =  threading.currentThread().name
     lock = threading.Lock()
     shutdown_flag = threading.Event()
@@ -401,27 +413,31 @@ def worker_thread(condition):
 
         lock.acquire()
         queue = str(workers[name].get_lock())
+        start = workers[name].get_position()
 
         if (sector_queues[queue].qsize() == 0): # If there is't any more work in the sector, got back to spawn possition
             print("SEND " + name + " BACK TO SPAWN POINT, NO WORK LEFT!")
-            worker([(1242, 54, "a")], True, condition)
+            drop_totes(name, start, condition)
+            worker([(1242, 54, "a")], False, condition)
             workers[name].change_postion(0,0)
-            while items_picket != 1000:
+            print("Items picket > batches: " + str(items_picket > len(batches)))
+            while items_picket > len(batches):
                 time.sleep(2)
-            t.stop()
+            c.join()
             break
 
         time.sleep(1)
         job = sector_queues[queue].get()
-        lock.release()
+        print("Queue for worker " + name + " has :" + str(sector_queues[queue].qsize()))
+        lock.release() 
         
         worker(job, False, condition)
         
         sector_queues[queue].task_done() # Makes the thread available again, now that it has completed its job
 
-def job_alocation(order):
+def job_alocation():
 
-    global start
+    global start, t
     condition = threading.Condition()
     for nameWorker in workers_name:      
         t = threading.Thread(target = worker_thread, name= nameWorker, args=(condition,)) # Define the thread at asign it to go through 'wroker_thread" function when started
@@ -522,9 +538,9 @@ if __name__ == "__main__":
     max_tote_inventory = 5
     max_full_tote = 5
     time_for_droping = 10
-    batch_quantity = 25 # 25
-    batch_volume = 5 # 5
-    old_batch = True  # Using old batch is when this variable is 'True'
+    batch_quantity = 5 # 25
+    batch_volume = 2 # 5
+    old_batch = False  # Using old batch is when this variable is 'True'
     all_deployed = False
 
     # Create sector job queues
@@ -579,4 +595,4 @@ if __name__ == "__main__":
     controller_thread()
 
     # Alocate work
-    job_alocation(batches)
+    job_alocation()
