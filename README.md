@@ -1,3 +1,7 @@
+							DEMO VIDEO
+		This is not the final product, it is a MID-WAY development demo with a lot of bugs for interviewing purposes.
+					  https://www.youtube.com/watch?v=AduL7gr50jU
+
 
 
 Simulation software for conducting work environment tests on the pickers of units in a warehouse.
