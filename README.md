@@ -1,6 +1,9 @@
 							DEMO VIDEO
 		This is not the final product, it is a MID-WAY development demo with a lot of bugs for interviewing purposes.
 					  https://www.youtube.com/watch?v=AduL7gr50jU
+		Warning: Visualisation stops if you cickout of it. Pygame does not fully support multithreading.
+
+
 
 
 
